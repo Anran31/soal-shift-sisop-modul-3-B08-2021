@@ -295,7 +295,7 @@ void *connection_handler(void *socket_desc)
                 break;
             }
             else{
-                char *cmdNotFound = "Invalid cmd";
+                char *cmdNotFound = "Invalid Command";
                 char invalCmd[PATH_MAX];
                 sprintf(invalCmd,"%s\n\n%s",cmdNotFound,start);
                 send(sock , invalCmd , strlen(invalCmd),0);
