@@ -88,11 +88,11 @@ Contoh :
 | 4 | 6 | 4 3 2 1 |
 
 Contoh :
-| Matriks A1 | Matriks A2 | Matriks B1 | Matriks B2 | Matriks Hasil |
-| :---: | :---: | :---: | :---: | :---: | :---: |
-| 0 | 4 | 0 | 4 | 0 | 4* 3* 2* 1 |
-| 4 | 5 | 6 | 2 | 4* 3* 2* 1 | 5* 4 |
-| 5 | 6 | 6 | 0 | 5* 4* 3* 2* 1 | 0 |
+| Matriks A | Matriks B | Matriks Hasil |
+| :---: | :---: | :---: |
+| 0 \| 4 | 0 \| 4 | 0 \| 4* 3* 2* 1 |
+| 4 \| 5 | 6 \| 2 | 4* 3* 2* 1 \| 5* 4 |
+| 5 \| 6 | 6 \| 0 | 5* 4* 3* 2* 1 \| 0 |
 
 **c.** Karena takut lag dalam pengerjaannya membantu Loba, Crypto juga membuat program (soal2c.c) untuk mengecek 5 proses teratas apa saja yang memakan resource komputernya dengan command “ps aux | sort -nrk 3,3 | head -5” (Catatan!: Harus menggunakan IPC Pipes)
 Note:
