@@ -6,6 +6,7 @@ Di dalam proyek itu, Keverk diminta:
 
 **a.** Pada saat client tersambung dengan server, terdapat dua pilihan pertama, yaitu register dan login. Jika memilih register, client akan diminta input id dan passwordnya untuk dikirimkan ke server. User juga dapat melakukan login. Login berhasil jika id dan password yang dikirim dari aplikasi client sesuai dengan list akun yang ada didalam aplikasi server. Sistem ini juga dapat menerima multi-connections. Koneksi terhitung ketika aplikasi client tersambung dengan server. Jika terdapat 2 koneksi atau lebih maka harus menunggu sampai client pertama keluar untuk bisa melakukan login dan mengakses aplikasinya. Keverk menginginkan lokasi penyimpanan id dan password pada file bernama akun.txt dengan format :
 > akun.txt
+> 
 > id:password
 > 
 > id2:password2
@@ -23,7 +24,9 @@ Contoh Command Client :
  
 Output Client Console:		
 > Publisher:
+> 
 > Tahun Publikasi:
+> 
 > Filepath:
 
 Kemudian, dari aplikasi client akan dimasukan data buku tersebut (perlu diingat bahwa Filepath ini merupakan path file yang akan dikirim ke server). Lalu client nanti akan melakukan pengiriman file ke aplikasi server dengan menggunakan socket. Ketika file diterima di server, maka row dari files.tsv akan bertambah sesuai dengan data terbaru yang ditambahkan.
@@ -61,8 +64,9 @@ find TEMP
 
 **h.** Dikarenakan Keverk waspada dengan pertambahan dan penghapusan file di server, maka Keverk membuat suatu log untuk server yang bernama running.log. Contoh isi dari log ini adalah
 running.log
-Tambah : File1.ektensi (id:pass)
-Hapus : File2.ektensi (id:pass)
+> Tambah : File1.ektensi (id:pass)
+> 
+> Hapus : File2.ektensi (id:pass)
 
 
 
@@ -75,7 +79,9 @@ Crypto (kamu) adalah teman Loba. Suatu pagi, Crypto melihat Loba yang sedang kew
 Ketentuan
 		
 > If a >= b  -> a!/(a-b)!
+> 
 > If b > a -> a!
+> 
 > If 0 -> 0
 
 Contoh :
@@ -121,7 +127,9 @@ $ ./soal3 -f path/to/file1.jpg path/to/file2.c path/to/file3.zip
 **a.** Program menerima opsi -f seperti contoh di atas, jadi pengguna bisa menambahkan argumen file yang bisa dikategorikan sebanyak yang diinginkan oleh pengguna. 
 Output yang dikeluarkan adalah seperti ini :
 > File 1 : Berhasil Dikategorikan (jika berhasil)
+> 
 > File 2 : Sad, gagal :( (jika gagal)
+> 
 > File 3 : Berhasil Dikategorikan
 
 **b.** Program juga dapat menerima opsi -d untuk melakukan pengkategorian pada suatu directory. Namun pada opsi -d ini, user hanya bisa memasukkan input 1 directory saja, tidak seperti file yang bebas menginput file sebanyak mungkin. Contohnya adalah seperti ini:
@@ -129,6 +137,7 @@ Output yang dikeluarkan adalah seperti ini :
 Perintah di atas akan mengkategorikan file di /path/to/directory, lalu hasilnya akan disimpan di working directory dimana program C tersebut berjalan (hasil kategori filenya bukan di /path/to/directory).
 Output yang dikeluarkan adalah seperti ini :
 > Jika berhasil, print “Direktori sukses disimpan!”
+> 
 > Jika gagal, print “Yah, gagal disimpan :(“
 
 **c.** Selain menerima opsi-opsi di atas, program ini menerima opsi * , contohnya ada di bawah ini:
