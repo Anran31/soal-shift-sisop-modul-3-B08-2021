@@ -134,6 +134,7 @@ Output yang dikeluarkan adalah seperti ini :
 
 **b.** Program juga dapat menerima opsi -d untuk melakukan pengkategorian pada suatu directory. Namun pada opsi -d ini, user hanya bisa memasukkan input 1 directory saja, tidak seperti file yang bebas menginput file sebanyak mungkin. Contohnya adalah seperti ini:
 > $ ./soal3 -d /path/to/directory/
+
 Perintah di atas akan mengkategorikan file di /path/to/directory, lalu hasilnya akan disimpan di working directory dimana program C tersebut berjalan (hasil kategori filenya bukan di /path/to/directory).
 Output yang dikeluarkan adalah seperti ini :
 > Jika berhasil, print “Direktori sukses disimpan!”
@@ -142,6 +143,7 @@ Output yang dikeluarkan adalah seperti ini :
 
 **c.** Selain menerima opsi-opsi di atas, program ini menerima opsi * , contohnya ada di bawah ini:
 > $ ./soal3 \*
+
 Opsi ini akan mengkategorikan seluruh file yang ada di working directory ketika menjalankan program C tersebut.
 
 **d.** Semua file harus berada di dalam folder, jika terdapat file yang tidak memiliki ekstensi, file disimpan dalam folder “Unknown”. Jika file hidden, masuk folder “Hidden”.
