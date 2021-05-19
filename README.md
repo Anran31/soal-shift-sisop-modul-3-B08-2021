@@ -67,7 +67,9 @@ Hapus : File2.ektensi (id:pass)
 
 ## Soal 2
 Crypto (kamu) adalah teman Loba. Suatu pagi, Crypto melihat Loba yang sedang kewalahan mengerjakan tugas dari bosnya. Karena Crypto adalah orang yang sangat menyukai tantangan, dia ingin membantu Loba mengerjakan tugasnya. Detil dari tugas tersebut adalah:
+
 **a.** Membuat program perkalian matrix (4x3 dengan 3x6) dan menampilkan hasilnya. Matriks nantinya akan berisi angka 1-20 (tidak perlu dibuat filter angka).
+
 **b.** Membuat program dengan menggunakan matriks output dari program sebelumnya (program soal2a.c) (Catatan!: gunakan shared memory). Kemudian matriks tersebut akan dilakukan perhitungan dengan matrix baru (input user) sebagai berikut contoh perhitungan untuk matriks yang ada. Perhitungannya adalah setiap cel yang berasal dari matriks A menjadi angka untuk faktorial, lalu cel dari matriks B menjadi batas maksimal faktorialnya matri(dari paling besar ke paling kecil) (Catatan!: gunakan thread untuk perhitungan di setiap cel). 
 Ketentuan
 		
@@ -86,8 +88,8 @@ Contoh :
 | 4 | 6 | 4 3 2 1 |
 
 Contoh :
-| Matriks A | Matriks B | Matriks Hasil |
-| :---: | :---: | :---: |
+| Matriks A1 | Matriks A2 | Matriks B1 | Matriks B2 | Matriks Hasil |
+| :---: | :---: | :---: | :---: | :---: | :---: |
 | 0 | 4 | 0 | 4 | 0 | 4* 3* 2* 1 |
 | 4 | 5 | 6 | 2 | 4* 3* 2* 1 | 5* 4 |
 | 5 | 6 | 6 | 0 | 5* 4* 3* 2* 1 | 0 |
@@ -133,6 +135,7 @@ Output yang dikeluarkan adalah seperti ini :
 Opsi ini akan mengkategorikan seluruh file yang ada di working directory ketika menjalankan program C tersebut.
 
 **d.** Semua file harus berada di dalam folder, jika terdapat file yang tidak memiliki ekstensi, file disimpan dalam folder “Unknown”. Jika file hidden, masuk folder “Hidden”.
+
 **e.** Setiap 1 file yang dikategorikan dioperasikan oleh 1 thread agar bisa berjalan secara paralel sehingga proses kategori bisa berjalan lebih cepat.
 
 Namun karena Ayub adalah orang yang hanya bisa memberi ide saja, tidak mau bantuin buat bikin programnya, Ayub meminta bantuanmu untuk membuatkan programnya. Bantulah agar program dapat berjalan!
