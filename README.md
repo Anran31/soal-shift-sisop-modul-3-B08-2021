@@ -73,9 +73,75 @@ running.log
 ## Soal 2
 Crypto (kamu) adalah teman Loba. Suatu pagi, Crypto melihat Loba yang sedang kewalahan mengerjakan tugas dari bosnya. Karena Crypto adalah orang yang sangat menyukai tantangan, dia ingin membantu Loba mengerjakan tugasnya. Detil dari tugas tersebut adalah:
 
-**a.** Membuat program perkalian matrix (4x3 dengan 3x6) dan menampilkan hasilnya. Matriks nantinya akan berisi angka 1-20 (tidak perlu dibuat filter angka).
+### 2.1 
+Membuat program perkalian matrix (4x3 dengan 3x6) dan menampilkan hasilnya. Matriks nantinya akan berisi angka 1-20 (tidak perlu dibuat filter angka).
 
-**b.** Membuat program dengan menggunakan matriks output dari program sebelumnya (program soal2a.c) (Catatan!: gunakan shared memory). Kemudian matriks tersebut akan dilakukan perhitungan dengan matrix baru (input user) sebagai berikut contoh perhitungan untuk matriks yang ada. Perhitungannya adalah setiap cel yang berasal dari matriks A menjadi angka untuk faktorial, lalu cel dari matriks B menjadi batas maksimal faktorialnya matri(dari paling besar ke paling kecil) (Catatan!: gunakan thread untuk perhitungan di setiap cel). 
+#### Jawab
+Pertama adalah membuat function untuk mengali yaitu `multiply` antar matriks yang akan di inputkan.
+```c
+void multiply(int matA[][3],int matB[][6], int result[][6])
+{
+   for (int i = 0; i < 4; ++i) {
+      for (int j = 0; j < 6; ++j) {
+         for (int k = 0; k < 3; ++k) {
+            result[i][j] += matA[i][k] * matB[k][j];
+         }
+      }
+   }
+}
+```
+Agar hasil dari soal bagian ini dapat digunakan pada soal selanjutnya, maka akan menggunakan shared memory. Karena yang disimpan dalam shared memory berbentuk 2 dimensi, maka akan menggunakan bentuk seperti ini `int (*result)[6];` kemudian setelah itu menggunakan argumen `shmid` dan `shmget` dimasukkan apa apa yang dibutuhkan ke dalam shared memory. seperti key, ukuran dari resultnya dan lain lain. 
+
+Setelahnya seperti biasa, input value yang dibutuhkan, matriks `4x3` dan `3x6` lalu di masukkan pada function `multiply` dan di print hasilnya sesuai dengan yang diinginkan. setelah itu, baru `result` dimasukkan dalam `shmdt` untuk disalurkan/ melepaskan pada program lain yang membutuhkan.
+```c
+int main()
+{
+    int matA[4][3], matB[3][6];
+
+    key_t key = 1234;
+    int (*result)[6];
+
+    int shmid = shmget(key, sizeof(int[4][6]), IPC_CREAT | 0666);
+    result = shmat(shmid, NULL, 0);
+
+    printf("Masukkan Matriks 4x3:\n");
+    for(int i = 0; i<4; i++)
+    {
+            for(int j = 0; j<3; j++)
+            {
+                    scanf("%d", &matA[i][j]);
+            }
+    }
+
+    printf("\nMasukkan Matriks 3x6:\n");
+    for(int i = 0; i<3; i++)
+    {
+            for(int j = 0; j<6; j++)
+            {
+                    scanf("%d", &matB[i][j]);
+            }
+    }
+
+    multiply(matA,matB,result);
+
+    printf("\nHasil Perkalian Matriks:\n");
+    for(int i = 0; i<4; i++)
+    {
+            for(int j = 0; j<6; j++)
+            {
+                    printf("%d ", result[i][j]);
+            }
+            printf("\n");
+    }
+
+    shmdt(result);
+    //shmctl(shmid, IPC_RMID, NULL);
+    return 0;
+}
+```
+
+### 2.2
+Membuat program dengan menggunakan matriks output dari program sebelumnya (program soal2a.c) (Catatan!: gunakan shared memory). Kemudian matriks tersebut akan dilakukan perhitungan dengan matrix baru (input user) sebagai berikut contoh perhitungan untuk matriks yang ada. Perhitungannya adalah setiap cel yang berasal dari matriks A menjadi angka untuk faktorial, lalu cel dari matriks B menjadi batas maksimal faktorialnya matri(dari paling besar ke paling kecil) (Catatan!: gunakan thread untuk perhitungan di setiap cel). 
 Ketentuan
 		
 > If a >= b  -> a!/(a-b)!
@@ -101,7 +167,145 @@ Contoh :
 | 4 \| 5 | 6 \| 2 | 4* 3* 2* 1 \| 5* 4 |
 | 5 \| 6 | 6 \| 0 | 5* 4* 3* 2* 1 \| 0 |
 
-**c.** Karena takut lag dalam pengerjaannya membantu Loba, Crypto juga membuat program (soal2c.c) untuk mengecek 5 proses teratas apa saja yang memakan resource komputernya dengan command “ps aux | sort -nrk 3,3 | head -5” (Catatan!: Harus menggunakan IPC Pipes)
+#### Jawab
+Pertama tama adalah untuk input Matriks B sebagai pembatas faktorial, menggunakan input sendiri. Disertai dengan deklarasi shared memory.
+```c
+    key_t key = 1234;
+    int (*matA)[6];
+
+    int shmid = shmget(key, sizeof(int[4][6]), IPC_CREAT | 0666);
+    matA = shmat(shmid, NULL, 0);
+
+    printf("Masukkan Matriks 4x6:\n");
+    for(int i = 0; i<4; i++)
+    {
+            for(int j = 0; j<6; j++)
+            {
+                    scanf("%d", &matB[i][j]);
+            }
+    }
+
+```
+
+Kemudian, karena disuruh menggunakan thread untuk perhitungan tiap cell, maka dibuat thread dengan ukuran 24, dari `6x4`. Karena di dalam thread menjalankan fungsi `solution` dan menyesuaikan bentuk argumen yang berupa `void pointer` sedangkan argumen dalam solution hanya ada 1, maka cara yang paling mudah adalah menggunakan bantuan dari `struct`.
+```c
+    pthread_t tid[24];
+    int  iret[24];
+    helper *help = malloc(24 * sizeof(helper));
+
+    for(int i = 0; i<4; i++)
+    {
+        for(int j = 0; j<6; j++)
+        {
+            help[(i*6)+j].A = matA[i][j];
+            help[(i*6)+j].B = matB[i][j];
+            help[(i*6)+j].row = i;
+            help[(i*6)+j].col = j;
+            iret[(i*6)+j] = pthread_create( &(tid[(i*6)+j]), NULL, solution, &help[(i*6)+j]); //membuat thread pertama
+            if(iret[(i*6)+j]) //jika eror
+            {
+                fprintf(stderr,"Error - pthread_create() return code: %d\n",iret[(i*6)+j]);
+                exit(EXIT_FAILURE);
+            }     
+        }
+    }
+```
+```c
+typedef struct helper_t
+{
+    int A;
+    int B;
+    int row;
+    int col;
+} helper;
+```
+Isi dari struct itu sendiri adalah apa2 yang dibutuhkan untuk menemukan hasil perhitungan pada tiap cell, karean itulah struct `helper` dibuat sebesar jumlah cell yang ada. 
+Cara memasukkan nilainya adalah menggunakan `for` untuk setiap index, dari `0 s/d 23`. `int A` berisi matriks B, `int B` berisi matriks B, `int row` berisi i, dan `int col` berisi j. 
+Setelah itu dibuatlah thread masing2 cell. Setiap thread akan memanggil fungsi `solution` dengan argumen berupa alamat dari helper tersebut. Agarr semua elemen yang dibutuhkan ada.
+
+```c
+void *solution( void *ptr )
+{
+    helper *help = (helper *) ptr;
+    int a = help->A, b = help->B, row = help->row, col = help->col;
+    //printf("%d %d %d %d\n",help->A, help->B,help->row, help->col);
+
+    if(!a || !b) result[row][col] = 0;
+    else if (a >= b)
+    {
+        int start = a, end = a-b;
+        result[row][col] = fact(start,end);
+    }
+    else result[row][col] = fact(a,0);
+    return NULL;
+}
+```
+Pertama, pada fungsi `solution` dikarenakan argumennya berupa `void pointer` maka harus di custom dahulu agara sesuai dengan `helper` yaitu pada `helper *help = (helper *) ptr;` dan kemudian variablenya diganti atau disesuaikan dengan customnya yang baru. 
+Sedangkan `if` setelahnya adalah kondisi yang diinginkan oleh soal. Serta jika memenuhi makan akan masuk ke fungsi `fact`.
+```c
+unsigned long long fact(int start, int end)
+{
+    if(start == end) return 1;
+    else return start*fact(start-1,end);
+}
+```
+Untuk resultnya sendiri sudah disetting ukuran awalnya pada awal program.
+```c
+int matB[4][6];
+unsigned long long result[4][6];
+void *solution( void *ptr );
+unsigned long long fact( int start, int end);
+```
+Karena `for` pada pengisian `helper` akan berjalan sebanyak 24 kali, dan join thread juga akan berjalan sebanyak 24 kali. Maka mereka akan dijalankan secara berurutan. 
+```c
+helper *help = malloc(24 * sizeof(helper));
+
+for(int i = 0; i<4; i++)
+    {
+        for(int j = 0; j<6; j++)
+        {
+            help[(i*6)+j].A = matA[i][j];
+            help[(i*6)+j].B = matB[i][j];
+            help[(i*6)+j].row = i;
+            help[(i*6)+j].col = j;
+            iret[(i*6)+j] = pthread_create( &(tid[(i*6)+j]), NULL, solution, &help[(i*6)+j]); //membuat thread pertama
+            if(iret[(i*6)+j]) //jika eror
+            {
+                fprintf(stderr,"Error - pthread_create() return code: %d\n",iret[(i*6)+j]);
+                exit(EXIT_FAILURE);
+            }     
+        }
+    }
+
+    for(int i = 0; i<24 ;i++)
+    {
+        pthread_join( tid[i], NULL);  
+    }
+```
+Setelah selesai, selanjutnya adalah untuk memprint hasil matriks yang sudah dihitung faktorialnya tadi.
+```c
+printf("\nMatriks Hasil:\n");
+    for(int i = 0; i<4; i++)
+    {
+            for(int j = 0; j<6; j++)
+            {
+                    printf("%llu ", result[i][j]);
+            }
+            printf("\n");
+    }
+
+```
+Yang terakhir, karena menggunakan malloc, maka help harus di `free` kan agar memorinya bisa pulih kembali. lalu melepaskan atau `detach` matriks A dan terakhir menghancurkan shared memory yang ada.
+```c    
+    free(help);
+    shmdt(matA);
+    shmctl(shmid, IPC_RMID, NULL);
+    return 0;
+}
+```
+
+### 2.3
+Karena takut lag dalam pengerjaannya membantu Loba, Crypto juga membuat program (soal2c.c) untuk mengecek 5 proses teratas apa saja yang memakan resource komputernya dengan command “ps aux | sort -nrk 3,3 | head -5” (Catatan!: Harus menggunakan IPC Pipes)
 Note:
 - Semua matriks berasal dari input ke program.
 - Dilarang menggunakan system()
