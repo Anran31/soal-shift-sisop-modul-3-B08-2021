@@ -70,6 +70,7 @@ running.log
 
 
 
+
 ## Soal 2
 Crypto (kamu) adalah teman Loba. Suatu pagi, Crypto melihat Loba yang sedang kewalahan mengerjakan tugas dari bosnya. Karena Crypto adalah orang yang sangat menyukai tantangan, dia ingin membantu Loba mengerjakan tugasnya. Detil dari tugas tersebut adalah:
 
@@ -310,6 +311,99 @@ Note:
 - Semua matriks berasal dari input ke program.
 - Dilarang menggunakan system()
 
+#### Jawab
+Pertama yang dilakukan adalah membuat `pipe0` yang digunakan untuk standard input ke dalam `ls`
+int main(int argc, char *argv[]) {
+```c
+
+    int pid;
+    int pipe0[2];
+    int pipe1[2];
+
+    // create pipe0
+    if (pipe(pipe0) == -1) {
+        perror("bad pipe0");
+        exit(1);
+    }
+
+    // fork (ps aux)
+    if ((pid = fork()) == -1) {
+        perror("bad fork0");
+        exit(1);
+    } 
+    else if (pid == 0) {
+        // stdin --> ls --> pipe0
+        // input from stdin (already done), output to pipe0
+        dup2(pipe0[1], 1);
+        // close fds
+        close(pipe0[0]);
+        close(pipe0[1]);
+
+        char *arg[]={"ps", "aux",NULL};
+        execv("/bin/ps", arg);
+        // exec didn't work, exit
+        perror("bad exec ps");
+        _exit(1);
+    }
+```
+Setelah itu, membuat `fork` untuk command `ps aux`, jika input sudah dilakukan, maka `pipe0` akan di close, dan outputnya akan di`grep`.
+Setelah membuat `pipe0`, `pipe1` sebagai parent process dibuat untuk mengambil input dari hasil output `pipe0` dan melanjutkannya ke tail dan ke standard output.
+```c
+// create pipe1
+    if (pipe(pipe1) == -1) {
+        perror("bad pipe1");
+        exit(1);
+    }
+
+    // fork (sort -nrk 3,3)
+    if ((pid = fork()) == -1) {
+        perror("bad fork1");
+        exit(1);
+    } 
+    else if (pid == 0) {
+        // pipe0--> grep --> pipe1
+        // input from pipe0
+        dup2(pipe0[0], 0);
+        // output to pipe1
+        dup2(pipe1[1], 1);
+        // close fds
+        close(pipe0[0]);
+        close(pipe0[1]);
+        close(pipe1[0]);
+        close(pipe1[1]);
+
+        char *arg[]={"sort", "-nrk","3,3",NULL};
+        execv("/bin/sort", arg);
+        // exec didn't work, exit
+        perror("bad exec sort");
+        _exit(1);
+    }
+    // parent
+
+    // close unused fds
+    close(pipe0[0]);
+    close(pipe0[1]);
+
+    // pipe1--> tail --> stdout
+    // input from pipe1
+    dup2(pipe1[0], 0);
+    // output to stdout (already done). Close fds
+    close(pipe1[0]);
+    close(pipe1[1]);
+
+    char *arg[]={"head", "-5",NULL};
+    execv("/bin/head", arg);
+    // exec didn't work, exit
+    perror("bad exec head");
+    _exit(1);
+
+    return 0;
+}
+```
+di dalam parent, dibuat command untuk `-nrk, 3,3` dan argumen untuk mengecek resource 5 proses teratas.
+
+
+
 
 ## Soal 3
 Seorang mahasiswa bernama Alex sedang mengalami masa gabut. Di saat masa gabutnya, ia memikirkan untuk merapikan sejumlah file yang ada di laptopnya. Karena jumlah filenya terlalu banyak, Alex meminta saran ke Ayub. Ayub menyarankan untuk membuat sebuah program C agar file-file dapat dikategorikan. Program ini akan memindahkan file sesuai ekstensinya ke dalam folder sesuai ekstensinya yang folder hasilnya terdapat di working directory ketika program kategori tersebut dijalankan.
@@ -328,13 +422,17 @@ $ ./soal3 -f path/to/file1.jpg path/to/file2.c path/to/file3.zip
 |--file3.zip
 ```
 
-**a.** Program menerima opsi -f seperti contoh di atas, jadi pengguna bisa menambahkan argumen file yang bisa dikategorikan sebanyak yang diinginkan oleh pengguna. 
+### 2.1 
+Program menerima opsi -f seperti contoh di atas, jadi pengguna bisa menambahkan argumen file yang bisa dikategorikan sebanyak yang diinginkan oleh pengguna. 
 Output yang dikeluarkan adalah seperti ini :
 > File 1 : Berhasil Dikategorikan (jika berhasil)
 > 
 > File 2 : Sad, gagal :( (jika gagal)
 > 
 > File 3 : Berhasil Dikategorikan
+
+#### Jawab
+Pertama adalah 
 
 **b.** Program juga dapat menerima opsi -d untuk melakukan pengkategorian pada suatu directory. Namun pada opsi -d ini, user hanya bisa memasukkan input 1 directory saja, tidak seperti file yang bebas menginput file sebanyak mungkin. Contohnya adalah seperti ini:
 > $ ./soal3 -d /path/to/directory/
