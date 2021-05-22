@@ -422,6 +422,15 @@ $ ./soal3 -f path/to/file1.jpg path/to/file2.c path/to/file3.zip
 |--file3.zip
 ```
 
+Pertama adalah hand;ing exception untuk untuk semua perintah yang akan dijalankan. pada main digunakan argumen `argc` dan `argv`. `argc` digunakan untuk mengecek jika perintah yang dimasukkan kurang dari 2, atau berarti hanya mengisi nama file tanpa argumen. Dan membuat error, maka akan di handling seperti berikut.
+```c
+    if(argc<2)
+    {
+        printf ("Need Arguments\nList of Valid Arguments:\n-f\n-d\n*\n");
+        return 0;
+    }
+```
+
 ### 2.1 
 Program menerima opsi -f seperti contoh di atas, jadi pengguna bisa menambahkan argumen file yang bisa dikategorikan sebanyak yang diinginkan oleh pengguna. 
 Output yang dikeluarkan adalah seperti ini :
@@ -432,9 +441,160 @@ Output yang dikeluarkan adalah seperti ini :
 > File 3 : Berhasil Dikategorikan
 
 #### Jawab
-Pertama adalah 
+Untuk membuat opsi -f yang dapat menerima argumen files sebanyak yg ingin dikategorikan pengguna, maka akan menggunakan handling untuk jika `argc` kurang dari 3 maka akan butuh path lagi karena dia akan menerima path ke file yang akan dikategorikan sesuai jenis file/ extensionnya seperti `.jpg``.txt``.png` dan sebagainya.
 
-**b.** Program juga dapat menerima opsi -d untuk melakukan pengkategorian pada suatu directory. Namun pada opsi -d ini, user hanya bisa memasukkan input 1 directory saja, tidak seperti file yang bebas menginput file sebanyak mungkin. Contohnya adalah seperti ini:
+```c
+    else if(!strcmp(argv[1],"-f")) 
+    {
+
+        //printf("%d\n", argc);
+        if(argc<3)
+        {
+            printf ("Need Minimal 1 Path to File\n");
+            exit(1);
+            return 0;
+        }
+```
+
+Lalu pada thread, `argc` dikurangi 2 karena 2 pertama pada argumen adalah nama file dan argumen `-f` yang kita gunakan. Maka supaya mendapatkan path file yang kita inginkan maka `argc` dikurangi 2.
+Setelah itu, dibuat looping `pthread` untuk memasukkan argumen `argv` yang sudah menyimpan path dari file yang kita inginkan serta memasukkannya dalam fungsi `moveFile`.
+```c
+
+        pthread_t tid[argc-2];
+
+        for(int i = 2; i<argc; i++)
+        {
+            pthread_create( &(tid[i-2]), NULL, moveFile, (void*) argv[i]);
+        }
+```
+
+Dalam fungsi `moveFile`, pertama adalah menyimpan path dari pointer argumen dalam `basePath`. Kemudian, adalah mengecek apakah file yang kita inginkan itu berupa `file register` atau file yang benar dan bukan `directory` atau semacamnya dengan menggunakan fungsi `checkExistAndRegFile`. 
+Dalam fungsi ini, akan dicek apakah dalam `basePath` ada path yang terlampir, jika ada maka akan mengecek apakah path itu menggunakan file yang benar atau tidak.  return value adalah berupa boolean. 
+Jika return false, maka tidak perlu untuk menjalankan fungsi di `moveFiles`. dan akan langsung me-return nilai 0.
+```c
+bool checkExistAndRegFile(char *basePath)
+{
+    struct stat buffer;
+    int exist = stat(basePath,&buffer);
+    if(exist == 0)
+    {
+        if( S_ISREG(buffer.st_mode) ) return true;
+        else return false;
+    }
+    else  
+        return false;
+}
+```
+
+Dan jika bernilai true, maka akan menjalankan argumen2 dalam fungsi `moveFiles`. 
+Pertama adalah memisahkan path menggunakan `strtok` berdasarkan tanda `/` pada path filenya. Kemudian di gunakan `memset` dari 0 dan `strcpy` selama belum null. Karena pasti nama file yang akan kita pindah itu ada di paling ujung path, maka kita tinggal mengambil yang paling terakhir saja.
+
+```c
+void *moveFile( void *arg )
+{
+    char basePath[PATH_MAX];
+    strcpy(basePath,(char *) arg);
+
+    if(checkExistAndRegFile(basePath))
+    {
+        //printf("%s\n",(char*)arg);
+        const char *p="/";
+        char *a,*b;
+        char fullPath[PATH_MAX];
+        strcpy(fullPath,(char *) arg);
+
+        char fileName[100];
+
+        for( a=strtok_r(fullPath,p,&b) ; a!=NULL ; a=strtok_r(NULL,p,&b) ) {
+            memset(fileName,0,sizeof(fileName));
+            strcpy(fileName,a);
+        }
+```
+Setelah itu kita mengecek extension dari filenya dengan masuk ke fungsi `getFileExt`. Di dalamnya, digunakan `strchr` untuk mengambil char dari huruf yang dipilih ke belakang. Maka untuk soal ini yang kita butuhkan adalah huruf dari belakang `.`. Nah, jika `ext` nilai NULL maka tidak ditemukan `.` sama sekali di path dan akan mereturn `Unknown`. 
+Jika ditemukan sama dengan `fileName` atau `.` ada di paling depan maka akan direturn `Hidden`.
+Dan jika ditemukan akan di printf jenis extensionnya dan di copy charnya hanya dari belakang `.` saja dengan menggunakan `ext+1`.
+```c
+void getFileExt(char* fileName, char *exten)
+{
+    char *ext = strchr(fileName, '.');
+    if (ext == NULL) {
+        strcpy(exten,"Unknown");
+    } 
+    else if (ext == fileName){
+        strcpy(exten,"Hidden");
+    }
+    else
+    {
+        //printf("file extension is %s\n",ext+1);
+        strcpy(exten,ext+1);
+    }
+}
+```
+Selanjutnya, dalam `moveFile` karena dikatakan tidak case sensitive, maka jika `ext` bukan `Hidden` atau `Unknown` setiap hurufnya akan di `tolower` agar seragam.
+Kemudian memakai `cwd` untuk mendapatkan walking directory atau path dimana program itu dijalankan. Jika tidak ada, maka akan handling error. 
+lalu untuk alamat tujuan `destDir` menggunakan `sprintf` untuk menggabungkan `cwd` dengan `/` dan hasil extension yang telah di lowercase tadi dan dibuat directorynya dengan `mkdir`.
+Terakhir adalah memindahkan file dengan `rename` yang memiliki fungsi sama dengan move. Dipindahkannya dari `basePath` ke `dest` menggunakan cwd tadi. Dan karena sudah sukses maka akan return 1, atau true.
+```c
+        char ext[PATH_MAX];
+        getFileExt(fileName,ext);
+
+        if(strcmp(ext,"Hidden") != 0 && strcmp(ext,"Unknown") != 0)
+        {
+            for(int i = 0; i<strlen(ext); i++)
+            {
+                ext[i] = tolower(ext[i]);
+            }
+        }
+
+        //printf("%s\n",ext);
+
+        char cwd[PATH_MAX];
+        if (getcwd(cwd, sizeof(cwd)) == NULL) {
+            perror("getcwd() error");
+            return (void *) 0;
+        }
+
+        //printf("%s\n",cwd);
+
+        char destDir[PATH_MAX];
+        sprintf(destDir,"%s/%s",cwd,ext);
+        // checkDestDir(destDir);
+        mkdir(destDir,0777);
+
+        char dest[PATH_MAX];
+        sprintf(dest,"%s/%s/%s",cwd,ext,fileName);
+        //printf("%s %s\n",basePath,dest);
+        rename(basePath,dest);
+        //pthread_exit(&retStatus);
+        return (void *) 1;
+    }
+    //else pthread_exit(&retStatus);
+    else return (void *) 0;
+}
+```
+
+Terakhir, pada `main`, akan dicek terlebih dahulu return value yang datang, jika 1 maka akan di print `Berhasil Dikategorikan` dan jika 0 maka print `Sad, gagal :(`
+```c
+
+        for (int i = 0; i < argc-2; i++)
+        {
+            int returnValue;
+            void *ptr;
+            pthread_join( tid[i], &ptr);
+            returnValue = (int) ptr;
+            //printf("%d %d\n",i, returnValue);
+            if(returnValue) printf("File %d : Berhasil Dikategorikan\n", i+1);
+            else printf("File %d : Sad, gagal :(\n", i+1);
+        }
+        
+        return 0;
+    }
+```
+Dan jika sudah selesai atau bukan `-f` maka akan return 0.
+
+
+### 2.2
+Program juga dapat menerima opsi -d untuk melakukan pengkategorian pada suatu directory. Namun pada opsi -d ini, user hanya bisa memasukkan input 1 directory saja, tidak seperti file yang bebas menginput file sebanyak mungkin. Contohnya adalah seperti ini:
 > $ ./soal3 -d /path/to/directory/
 
 Perintah di atas akan mengkategorikan file di /path/to/directory, lalu hasilnya akan disimpan di working directory dimana program C tersebut berjalan (hasil kategori filenya bukan di /path/to/directory).
@@ -443,14 +603,134 @@ Output yang dikeluarkan adalah seperti ini :
 > 
 > Jika gagal, print “Yah, gagal disimpan :(“
 
-**c.** Selain menerima opsi-opsi di atas, program ini menerima opsi * , contohnya ada di bawah ini:
+#### Jawab
+Pertama adalah mengecek directory yang dibutuhkan ada atau tidak. Dengan `strcpy` yang disimpan adalah directory yang diinput. 
+```c
+    else if(!strcmp(argv[1],"-d")) 
+    {
+        if(argc != 3)
+        {
+            printf ("Only Need 1 Path to Directory\n");
+            exit(1);
+            return 0;
+        } 
+        strcpy(baseDir,argv[2]);
+    }
+    else printf ("Invalid Argument\nList of Valid Arguments:\n-f\n-d\n*\n");
+
+    //printf("%s\n",baseDir);
+```
+
+Kemudian karena soal 2.2 dan 2.3 rekursif, maka akan dicek terlebih dahulu berapa banyak file yang ada dengan menggunakan `listFileRecursively`. 
+```c
+    int fileCount = 0;
+    if(!listFilesRecursively(baseDir, &fileCount))
+    {
+        printf("Yah, gagal disimpan :(\n");
+        return 0;
+    }
+
+```
+
+Di `listFilesRecursively` pertama adalah mencoba membuka directorynya degan `opendir` untuk mengecek apakah dia termasuk directory apa bukan. Jika bukan, maka akan direturn 0. 
+Kemudian pada `while` untuk menulis nama file secara recursive. Yang pertama adalah mengecek nama file apakah termasuk file atau tidak dan apakah merupakan sebuah file reguler dengan memasukkannya ke dalam fungsi `checkExistAndRegFile`. Jika iya maka directorynya akan disimpan pada array global `char fileList[2048][PATH_MAX];` yang telah di buat sebelumnya. setelah disimpan, `fileCount` juga akan ditambah 1.
+Maka setelahnya yang tersisa adalah fungsi recursivenya dan membuat path baru berdasarkan base path yang sebelumnya. Setelah semua selesai, maka akn di `closedir` dan return 1.
+```c
+int listFilesRecursively(char *basePath, int *fileCount)
+{
+    char path[PATH_MAX];
+    struct dirent *dp;
+    DIR *dir = opendir(basePath);
+
+    if (!dir)
+        return 0;
+
+    while ((dp = readdir(dir)) != NULL)
+    {
+        if (strcmp(dp->d_name, ".") != 0 && strcmp(dp->d_name, "..") != 0)
+        {
+            char fullPath[PATH_MAX];
+            sprintf(fullPath,"%s/%s",basePath,dp->d_name);
+            //printf("%s\n", fullPath);
+            if(checkExistAndRegFile(fullPath))
+            {
+                sprintf(fileList[*fileCount],"%s",fullPath);
+                *fileCount += 1;
+            }
+            // Construct new path from our base path
+            strcpy(path, basePath);
+            strcat(path, "/");
+            strcat(path, dp->d_name);
+
+            listFilesRecursively(path,fileCount);
+        }
+    }
+
+    closedir(dir);
+    return 1;
+}
+```
+
+Setelah mendapatkan fileCount dan merecursive, maka dibuat thread untuk mengelompokkan dan memindahkan file. Directorynya dimasukkan ke dalam `moveFile` dan dibandingkan dengan isi dari `fileList` yang ada sebelumnya. Dan setelahnya adalah tinggal menunggu hasilnya.
+```c
+    int fileCount = 0;
+    if(!listFilesRecursively(baseDir, &fileCount))
+    {
+        printf("Yah, gagal disimpan :(\n");
+        return 0;
+    }
+
+    //printf("file count = %d\n",fileCount);
+    pthread_t tid[fileCount];
+    for(int i = 0; i<fileCount; i++)
+    {
+        //printf("%s\n",fileList[i]);
+        pthread_create( &(tid[i]), NULL, moveFile, (void*) fileList[i]);
+    }
+
+    for (int i = 0; i < fileCount; i++)
+    {
+        void *ptr;
+        pthread_join( tid[i], &ptr);
+    }
+
+    if(!strcmp(argv[1],"-d")) printf("Direktori sukses disimpan!\n");
+    return 0;
+}
+```
+
+### 2.3 
+Selain menerima opsi-opsi di atas, program ini menerima opsi * , contohnya ada di bawah ini:
 > $ ./soal3 \*
 
 Opsi ini akan mengkategorikan seluruh file yang ada di working directory ketika menjalankan program C tersebut.
 
-**d.** Semua file harus berada di dalam folder, jika terdapat file yang tidak memiliki ekstensi, file disimpan dalam folder “Unknown”. Jika file hidden, masuk folder “Hidden”.
+#### Jawab
+Pertama adalah mengecek apakah directory yang dibutuhkan ada. kemudian dengan menggunakan `getcwd` di ambil path yang telah disimpan dalam `baseDir` sebelumnya.
+```c
+    if(!strcmp(argv[1],"*"))
+    {
+        if(argc != 2)
+        {
+            printf ("* Didn't Need Another Argument\n");
+            exit(1);
+            return 0;
+        }
+        if (getcwd(baseDir, sizeof(baseDir)) == NULL) {
+            perror("getcwd() error");
+            return 0;
+        }
+    }
+```
+### 2.4
+Semua file harus berada di dalam folder, jika terdapat file yang tidak memiliki ekstensi, file disimpan dalam folder “Unknown”. Jika file hidden, masuk folder “Hidden”.
+#### Jawab 
+Sudah ada dalam penjelasan soal 2.1.
 
-**e.** Setiap 1 file yang dikategorikan dioperasikan oleh 1 thread agar bisa berjalan secara paralel sehingga proses kategori bisa berjalan lebih cepat.
+### 2.5
+Setiap 1 file yang dikategorikan dioperasikan oleh 1 thread agar bisa berjalan secara paralel sehingga proses kategori bisa berjalan lebih cepat.
+#### Jawab
+Sudah ada dalam penjelasan dalam soal2 sebelumnya.
 
 Namun karena Ayub adalah orang yang hanya bisa memberi ide saja, tidak mau bantuin buat bikin programnya, Ayub meminta bantuanmu untuk membuatkan programnya. Bantulah agar program dapat berjalan!
 Catatan: 
