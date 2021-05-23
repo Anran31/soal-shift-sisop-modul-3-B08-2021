@@ -11,7 +11,313 @@ Di dalam proyek itu, Keverk diminta:
 > 
 > id2:password2
 
-**b.** Sistem memiliki sebuah database yang bernama files.tsv. Isi dari files.tsv ini adalah path file saat berada di server, publisher, dan tahun publikasi. Setiap penambahan dan penghapusan file pada folder file yang bernama  FILES pada server akan memengaruhi isi dari files.tsv. Folder FILES otomatis dibuat saat server dijalankan. 
+#### Jawab
+Pertama, supaya server bisa tersambung dengan banyak client, tetapi client yang lain harus menunggu client pertama untuk selesai maka dapat menggunakan thread untuk per client, kemudian menggunakan `pthread_join()` untuk menunggu thread yang paling pertama selesai.
+
+##### Server
+```c
+    while ((new_socket = accept(server_fd, (struct sockaddr *)&address, (socklen_t*)&addrlen)))
+    {
+            int *new_sock;
+            pthread_t sniffer_thread;
+            new_sock = malloc(sizeof(int));
+            *new_sock = new_socket;
+            
+            if( pthread_create( &sniffer_thread , NULL ,  connection_handler , (void*) new_sock) < 0)
+            {
+                perror("could not create thread");
+                return 1;
+            }
+            
+            //Now join the thread , so that we dont terminate before the thread
+            pthread_join( sniffer_thread , NULL);
+    }
+```
+##### Client
+```c
+    if (connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) {
+        printf("\nConnection Failed \n");
+        return -1;
+    }
+```
+
+Kedua, untuk melakukan registrasi, maka server akan mengirimkan permintaan kepada client untuk menginputkan username dan password yang diinginkan kemudian server akan menyimpannya di dalam `akun.txt` dengan format `username:password`.
+
+##### Server
+```c
+int main(int argc, char const *argv[]) {
+    
+    .....
+
+    else if(!strcmp(cmd,"register"))
+    {
+        if(tryRegister(sock)>0) 
+        {
+            sprintf(regMsg,"%s\n\n%s",regStat,start);
+            send(sock , regMsg , strlen(regMsg),0);
+        }
+        else
+        {
+            read_size = 0;
+            break;
+        }
+    }
+
+    .....
+}
+
+    //Fungsi tryRegister
+    int tryRegister(int sock)
+    {
+        char msg[20] = { 0 };
+        char user[50] = {0};
+        char pwd[50] = {0};
+        char *tmp[] = {"Enter Username : ", "Enter Password : "};
+        int read_val;
+        char namePass[PATH_MAX];
+        for(int i = 0; i<2;i++)
+        {
+            strcpy(msg,tmp[i]);
+            send(sock , msg , strlen(msg),0);
+            memset(msg,0,sizeof(msg));
+            if(!i) 
+            {
+                read_val = read(sock , user , 50);
+            }
+            else read_val = read(sock , pwd , 50);
+            if(!read_val) return -1;
+        }
+
+        sprintf(namePass,"%s:%s\n",user,pwd);
+
+        char cwd[PATH_MAX];
+        if (getcwd(cwd, sizeof(cwd)) == NULL) {
+            perror("getcwd() error");
+            return -1;
+        }
+
+        char akunPath[PATH_MAX];
+        sprintf(akunPath,"%s/%s",cwd,"akun.txt");
+
+        FILE * fPtr;
+
+        fPtr = fopen(akunPath, "a");
+
+        if(fPtr == NULL)
+        {
+            printf("Unable to create file.\n");
+            return -1;
+        }
+        fputs(namePass, fPtr);
+        fclose(fPtr);
+
+        return 1;
+    }
+```
+
+##### Client
+```c
+int main(int argc, char const *argv[]) {
+
+    .....
+
+    if(!strcmp(command,"register") && !Auth)
+    {
+        getCreds(sock, buffer,command);
+    }
+
+    .....
+}
+
+    //Fungsi getCreds
+    void getCreds(int sock, char *buffer, char *cmd)
+    {
+        memset(buffer,0,2048);
+        memset(cmd,0,2048);
+        for(int i = 0; i<2;i++)
+        {
+            read( sock , buffer, 2048);
+            printf("%s\n",buffer );
+            memset(buffer,0,2048);
+            scanf("%s",cmd);
+            send(sock , cmd , strlen(cmd) , 0 );
+            memset(cmd,0,2048);
+        }
+    }
+```
+Kemudian, untuk melakukan login, maka server akan mengirimkan permintaan kepada client untuk menginputkan username dan password kemudian server akan membandingkannya dengan seluruh `username:password` di dalam `akun.txt`. Jika ada yang cocok, maka user akan terautentikasi dan dapat menjalankan command lainnya. Tetapi jika tidak, server akan mengirim pesan error ke client.
+
+##### Server
+```c
+int main(int argc, char const *argv[]) {
+
+    .....
+
+    if(!strcmp(cmd,"login"))
+    {
+        if(tryLogin(&auth,sock,authUser,authPass)>0) 
+        {
+            if(auth) 
+            {
+                int Stat = 1;
+                send(sock,&Stat,sizeof(Stat),0);
+                strcpy(loginStat, "Login Success");
+                sprintf(loginMsg,"%s\n\n%s",loginStat,authenticated);
+            }
+            else 
+            {
+                int Stat = 0;
+                send(sock,&Stat,sizeof(Stat),0);
+                strcpy(loginStat, "Wrong Username or Password");
+                sprintf(loginMsg,"%s\n\n%s",loginStat,start);
+            }
+            send(sock , loginMsg , strlen(loginMsg),0);
+        }
+        else 
+        {
+            read_size = 0;
+            break;
+        }
+    .....
+}
+
+int tryLogin(int *auth, int sock, char *authUser, char *authPass)
+{
+    char msg[20] = { 0 };
+    char user[50] = {0};
+    char pwd[50] = {0};
+    char *tmp[] = {"Enter Username : ", "Enter Password : "};
+    char namePass[PATH_MAX];
+    int read_val;
+    for(int i = 0; i<2;i++)
+    {
+        strcpy(msg,tmp[i]);
+        send(sock , msg , strlen(msg),0);
+        memset(msg,0,sizeof(msg));
+        if(!i) 
+        {
+            read_val = read(sock , user , 50);
+        }
+        else read_val = read(sock , pwd , 50);
+        if(!read_val) return -1;
+    }
+
+    sprintf(namePass,"%s:%s\n",user,pwd);
+
+    char cwd[PATH_MAX];
+    if (getcwd(cwd, sizeof(cwd)) == NULL) {
+        perror("getcwd() error");
+        return -1;
+    }
+
+    char akunPath[PATH_MAX];
+    sprintf(akunPath,"%s/%s",cwd,"akun.txt");
+
+    FILE * fPtr;
+
+    fPtr = fopen(akunPath, "r");
+
+    if(fPtr == NULL)
+    {
+        printf("Unable to create file.\n");
+        return -1;
+    }
+
+    char *creds;
+    size_t len = 0;
+    while ((getline(&creds, &len, fPtr)) != -1) {
+        if(!strcmp(creds,namePass))
+        {
+            //printf("auth %s %s\n", creds,namePass);
+            *auth = 1;
+            strcpy(authUser,user);
+            strcpy(authPass,pwd);
+        }
+    }
+
+    memset(akunPath,0,sizeof(akunPath));
+    fclose(fPtr);
+
+    return 1;
+}
+```
+
+##### Client
+```c
+    //Digunakan untuk mengecek apakah client terautentikasi atau tidak
+    int auth = 0;
+
+    ....
+
+    else if(!strcmp(command,"login") && !Auth)
+    {
+        //Fungsi getCreds sama seperti yang di atas.
+        getCreds(sock, buffer,command);
+        read(sock,&Auth,sizeof(Auth));
+    }
+```
+
+
+**b.** Sistem memiliki sebuah database yang bernama files.tsv. Isi dari files.tsv ini adalah path file saat berada di server, publisher, dan tahun publikasi. Setiap penambahan dan penghapusan file pada folder file yang bernama  FILES pada server akan memengaruhi isi dari files.tsv. Folder FILES otomatis dibuat saat server dijalankan.
+
+#### Jawab
+
+Pada saat Server dijalankan dan sebelum menerima koneksi dari client, server akan membuat sebuah direktori bernama `FILES` terlebih dahulu
+
+##### Server
+```c
+int main(int argc, char const *argv[]) {
+    int server_fd, new_socket, valread;
+    struct sockaddr_in address;
+    int opt = 1;
+    int addrlen = sizeof(address);
+    char buffer[1024] = {0};
+   
+      
+    if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
+        perror("socket failed");
+        exit(EXIT_FAILURE);
+    }
+      
+    if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt, sizeof(opt))) {
+        perror("setsockopt");
+        exit(EXIT_FAILURE);
+    }
+
+    address.sin_family = AF_INET;
+    address.sin_addr.s_addr = INADDR_ANY;
+    address.sin_port = htons( PORT );
+      
+    if (bind(server_fd, (struct sockaddr *)&address, sizeof(address))<0) {
+        perror("bind failed");
+        exit(EXIT_FAILURE);
+    }
+
+    if (listen(server_fd, 3) < 0) {
+        perror("listen");
+        exit(EXIT_FAILURE);
+    }
+
+    makeFilesDir();
+
+    .....
+
+    return 0;
+}
+
+void makeFilesDir()
+{
+    char cwd[PATH_MAX];
+    if (getcwd(cwd, sizeof(cwd)) == NULL) {
+        perror("getcwd() error");
+    }
+    char DirPath[PATH_MAX];
+    sprintf(DirPath,"%s/%s",cwd,"FILES");
+    mkdir(DirPath,0777);
+
+    return;
+}
+```
 
 **c.** Tidak hanya itu, Keverk juga diminta membuat fitur agar client dapat menambah file baru ke dalam server. Direktori FILES memiliki struktur direktori di bawah ini : 
 Direktori FILES 
@@ -31,14 +337,494 @@ Output Client Console:
 
 Kemudian, dari aplikasi client akan dimasukan data buku tersebut (perlu diingat bahwa Filepath ini merupakan path file yang akan dikirim ke server). Lalu client nanti akan melakukan pengiriman file ke aplikasi server dengan menggunakan socket. Ketika file diterima di server, maka row dari files.tsv akan bertambah sesuai dengan data terbaru yang ditambahkan.
 
+#### Jawab
+Ketika client memasukkan command `add`, maka server akan meminta client memasukkan data yang dibutuhkan. Kemudian akan mengecek path yang diberikan oleh client, jika ada, maka client akan mengirimkan file tersebut dan server akan menerimanya. Jika tidak ada, maka akan menampilkan pesan error. Setelah file diterima oleh server, maka files.tsv akan diupdate.
+
+##### Server
+```c
+    if(!strcmp(cmd,"add"))
+    {
+        if(tryAdd(sock,authUser,authPass)>0) 
+        {
+            send(sock , authenticated , strlen(authenticated),0);
+        }
+        else 
+        {
+            char *notExist = "\nFile Didn't Exist or Path Not Found\n";
+            char fileNotFound[PATH_MAX];
+            sprintf(fileNotFound,"%s\n%s",notExist,authenticated);
+            send(sock , fileNotFound , strlen(fileNotFound),0);
+        }
+    }
+
+    //Fungsi tryAdd
+    int tryAdd(int sock, char *authUser, char *authPass)
+    {
+        char *list[]={"Publisher: ","Tahun Publikasi: ","Filepath: "};
+        char *status[] = {"Downloading","File Not Found"};
+        char msg[20] = {0};
+        char Publisher[2048] = {0}, Tahun[2048] = {0}, Filepath[2048]={0};
+        int read_val;
+        for(int i = 0; i<3;i++)
+        {
+            strcpy(msg,list[i]);
+            send(sock , msg , strlen(msg),0);
+            memset(msg,0,sizeof(msg));
+            if(i==0)  
+            {
+                read_val = read(sock , Publisher , sizeof(Publisher));
+            }
+            else if (i == 1) 
+            {
+                read_val = read(sock , Tahun , sizeof(Tahun));
+            }
+            else
+            {
+                read_val = read(sock , Filepath , sizeof(Filepath));
+            } 
+
+            if(!read_val) return -1;
+        }
+
+        if(checkExistAndRegFile(Filepath))
+        {
+            strcpy(msg,status[0]);
+            send(sock , msg , strlen(msg),0);
+            memset(msg,0,sizeof(msg));
+            const char *p="/";
+            char *a,*b;
+            char fullPath[PATH_MAX];
+            strcpy(fullPath,Filepath);
+            char fileName[100];
+
+            for( a=strtok_r(fullPath,p,&b) ; a!=NULL ; a=strtok_r(NULL,p,&b) ) {
+                memset(fileName,0,sizeof(fileName));
+                strcpy(fileName,a);
+            }
+
+            char exten[100];
+            getFileExt(Filepath,exten);
+
+            int ret = write_file(sock,fileName);
+
+            if(ret)
+            {
+                addDB(fileName,Publisher,Tahun,Filepath,exten);
+                char status[10];
+                strcpy(status,"Tambah");
+                makeLog(fileName,authUser,authPass,status);
+                return 1;
+            }
+
+        }
+        else
+        {      
+            return -1;
+        }
+    }
+
+    //Fungsi untuk mengecek apakah filenya ada
+    bool checkExistAndRegFile(char *basePath)
+    {
+        struct stat buffer;
+        int exist = stat(basePath,&buffer);
+        if(exist == 0)
+        {
+            if( S_ISREG(buffer.st_mode) ) return true;
+            else return false;
+        }
+        else  
+            return false;
+    }
+
+    //Fungsi untuk mendownload file dari client
+    int write_file(int sockfd, char *fileName){
+        int n;
+        FILE *fp;
+        char buffer[PATH_MAX];
+            char cwd[PATH_MAX];
+        if (getcwd(cwd, sizeof(cwd)) == NULL) {
+            perror("getcwd() error");
+            return -1;
+        }
+
+        char destination[PATH_MAX];
+        sprintf(destination,"%s/%s/%s",cwd,"FILES",fileName);
+        FILE *fr = fopen(destination, "wb");
+            if(fr == NULL)
+                printf("File %s Cannot be opened file on server.\n", destination);
+            else
+            {
+                bzero(buffer, PATH_MAX); 
+                int fr_block_sz = 0;
+                while((fr_block_sz = recv(sockfd, buffer, PATH_MAX, 0)) > 0) 
+                {
+                    int write_sz = fwrite(buffer, sizeof(char), fr_block_sz, fr);
+                    if(write_sz < fr_block_sz)
+                    {
+                        error("File write failed on server.\n");
+                    }
+                    bzero(buffer, PATH_MAX);
+                    if (fr_block_sz == 0 || fr_block_sz != PATH_MAX) 
+                    {
+                        break;
+                    }
+                }
+                if(fr_block_sz < 0)
+                {
+                    if (errno == EAGAIN)
+                    {
+                        printf("recv() timed out.\n");
+                    }
+                    else
+                    {
+                        fprintf(stderr, "recv() failed due to errno = %d\n", errno);
+                        exit(1);
+                    }
+                }
+                fclose(fr);
+                return 1;
+            }
+        return 1;
+    }
+
+    //Fungsi addDB untuk mengupdate files.tsv
+    void addDB(char *fileName,char *Publisher,char *Tahun,char *Filepath,char *exten)
+    {
+        char cwd[PATH_MAX] = {0};
+        if (getcwd(cwd, sizeof(cwd)) == NULL) {
+            perror("getcwd() error");
+            return -1;
+        }
+
+        char filesPath[PATH_MAX] = {0};
+        sprintf(filesPath,"%s/%s",cwd,"files.tsv");
+
+        //printf("%s\n",filesPath);
+        FILE * fPtr;
+
+        fPtr = fopen(filesPath, "a");
+
+        if(fPtr == NULL)
+        {
+            printf("Unable to create file.\n");
+            return -1;
+        }
+        char bookPath[1024] = {0}, log[PATH_MAX] = {0};
+        sprintf(bookPath,"%s/FILES/%s",cwd,fileName);
+        sprintf(log,"%s\t%s\t%s\n",Publisher,Tahun,bookPath);
+        fputs(log,fPtr);
+        fclose(fPtr);
+    }
+```
+
+##### Client
+```c
+    else if(!strcmp(command,"add")&& Auth)
+    {
+        if(!addFile(sock, buffer,command)) menu = 0;
+    }
+
+    //Fungsi addFile untuk mengirim file ke server
+    int addFile(int sock, char *buffer, char *cmd)
+    {
+        for(int i = 0; i<4;i++)
+        {
+            memset(buffer,0,2048);
+            read( sock , buffer, 2048);
+            if(i != 3)printf("%s\n",buffer );
+            if(i !=3)
+            {
+                memset(cmd,0,2048);
+                scanf(" %[^\n]s",cmd);
+                send(sock , cmd , strlen(cmd) , 0 );
+            }
+            else if(i==3)
+            {
+                if(!strcmp(buffer,"Downloading"))
+                {
+                    FILE *fp;
+                    fp = fopen(cmd, "r");
+                    if (fp == NULL) {
+                        perror("[-]Error in reading file.");
+                        continue;
+                    }
+                    send_file(fp, sock);
+                    fclose(fp);
+                    memset(buffer,0,2048);
+                    return 1;
+                }
+                else{
+                    memset(buffer,0,2048);
+                    memset(cmd,0,2048);
+                    return 0;
+                    break;
+                }
+            }
+        } 
+        memset(buffer,0,2048);
+        memset(cmd,0,2048);
+    }
+```
+
 **d.** Dan client dapat mendownload file yang telah ada dalam folder FILES di server, sehingga sistem harus dapat mengirim file ke client. Server harus melihat dari files.tsv untuk melakukan pengecekan apakah file tersebut valid. Jika tidak valid, maka mengirimkan pesan error balik ke client. Jika berhasil, file akan dikirim dan akan diterima ke client di folder client tersebut. 
 Contoh Command client
 > download TEMPfile.pdf
 
+#### Jawab
+Jika client mengirim command `download` dengan nama file yang ingin di download, maka server akan mengecek database yang ada di `files.tsv` apakah terdapat buku dengan nama file yang sesuai. Jika ada, maka server akan mengirim file tersebut ke client, tetapi jika tidak ada maka akan mengirimkan pesan error.
+
+##### Server
+```c
+    else if(!strcmp(cmd,"download"))
+    {
+            char bookName[2048] = {0};
+            char *dlStat[] = {"File Not Found\n", "Download Success\n"};
+            //read(sock,bookName,2048);
+            //printf("%s\n",file);
+            if(tryDownload(sock,file))
+            {
+                char dlSuc[2048];
+                sprintf(dlSuc,"%s\n%s",dlStat[1],authenticated);
+                send(sock, dlSuc, strlen(dlSuc),0);
+            }
+            else{
+                char dlFail[2048];
+                sprintf(dlFail,"%s\n%s",dlStat[0],authenticated);
+                send(sock, dlFail, strlen(dlFail),0);
+            }
+    }
+
+    //Fungsi tryDownload
+    int tryDownload(int sock, char *bookName)
+    {
+        char filePath[2048] = {0};
+        char clientRes[1024] = {0};
+        if(checkFile(bookName,filePath))
+        {
+            char *suc = "downloading";
+            send(sock,suc,strlen(suc),0);
+            read(sock,clientRes,sizeof(clientRes));
+            sendFile(sock,filePath);
+            return 1;
+        }
+        else{
+            char *fail = "failed";
+            send(sock,fail,strlen(fail),0);
+            read(sock,clientRes,sizeof(clientRes));
+            return 0;
+        }
+    }
+
+    //Funsi checkFile
+    int checkFile(char *bookName, char *filePath)
+    {
+        FILE *f;
+        char tsvPath[2048] = {0}, cwd[1024] = {0};
+        getcwd(cwd,sizeof(cwd));
+        sprintf(tsvPath,"%s/files.tsv",cwd);
+        f = fopen(tsvPath, "r"); 
+        char line[1024];
+        while (fgets(line, sizeof(line), f)) {
+            char name[1024] = {0};
+            char *lastName = strrchr(line,'/');
+            strcpy(name,lastName+1);
+            name[strcspn(name,"\n")] = '\0';
+            if (!strcmp(bookName,name)) {
+                //printf("%s",line);
+                sprintf(filePath,"%s/FILES/%s",cwd,name);
+                fclose(f);
+                return 1;
+            }
+        }
+        fclose(f);
+        return 0;
+    }
+
+    //Fungsi sendFile
+    void sendFile(int sock, char *filePath)
+    {
+        char sdbuf[PATH_MAX]; // Send buffer
+        FILE *fs = fopen(filePath, "rb");
+        if(fs == NULL)
+        {
+            fprintf(stderr, "ERROR: File %s not found on server. (errno = %d)\n", filePath, errno);
+            exit(1);
+        }
+
+        bzero(sdbuf, PATH_MAX); 
+        int fs_block_sz; 
+        while((fs_block_sz = fread(sdbuf, sizeof(char), PATH_MAX, fs))>0)
+        {
+            if(send(sock, sdbuf, fs_block_sz, 0) < 0)
+            {
+                fprintf(stderr, "ERROR: Failed to send file %s. (errno = %d)\n", filePath, errno);
+                exit(1);
+            }
+            bzero(sdbuf, PATH_MAX);
+        }
+        fclose(fs);
+        char stat[1024] = {0};
+        read(sock,stat,sizeof(stat));
+    }
+```
+
+##### Client
+```c
+    else if(!strcmp(command,"download")&& Auth)
+    {
+        char sta[20] = {0},respond[1024] = {0};
+        memset(sta,0,sizeof(sta));
+        read( sock , sta, sizeof(sta));
+        strcpy(respond,"ok");
+        send(sock,respond,sizeof(respond),0);
+        if(!strcmp(sta,"downloading"))receiveFile(sock,file);
+    }
+
+    //Fungsi receiveFile
+    int receiveFile(int sock, char *fileName)
+    {
+        char cwd[1024] = {0}, destName[2048] = {0}, revbuf[PATH_MAX] = {0};
+        getcwd(cwd,sizeof(cwd));
+        sprintf(destName,"%s/%s",cwd,fileName);
+        FILE *fr = fopen(destName, "wb");
+        if(fr == NULL)
+            printf("File %s Cannot be opened.\n", destName);
+        else
+        {
+            bzero(revbuf, PATH_MAX); 
+            int fr_block_sz = 0;
+            while((fr_block_sz = recv(sock, revbuf, PATH_MAX, 0)) > 0)
+            {
+                int write_sz = fwrite(revbuf, sizeof(char), fr_block_sz, fr);
+                if(write_sz < fr_block_sz)
+                {
+                    error("File write failed.\n");
+                }
+                bzero(revbuf, PATH_MAX);
+                if (fr_block_sz == 0 || fr_block_sz != PATH_MAX) 
+                {
+                    break;
+                }
+            }
+            if(fr_block_sz < 0)
+            {
+                if (errno == EAGAIN)
+                {
+                    printf("recv() timed out.\n");
+                }
+                else
+                {
+                    fprintf(stderr, "recv() failed due to errno = %d\n", errno);
+                }
+            }
+            fclose(fr);
+            char stat[1024] = {0};
+            strcpy(stat,"finish");
+            send(sock,stat,sizeof(stat),0);
+        }
+    }
+```
 **e.** Setelah itu, client juga dapat menghapus file yang tersimpan di server. Akan tetapi, Keverk takut file yang dibuang adalah file yang penting, maka file hanya akan diganti namanya menjadi ‘old-NamaFile.ekstensi’. Ketika file telah diubah namanya, maka row dari file tersebut di file.tsv akan terhapus.
 Contoh Command Client:
 > delete TEMPfile.pdf
 
+#### Jawab
+Saat client mengirimkan command `delete` beserta nama file, maka server akan mengecek apakah file tersebut ada di `files.tsv`. Jika ada, maka file tersebut di folder `FILES` akan direname menjadi ``old-namaFile`` kemudian di `files.tsv`, data file tersebut akan dihapus dengan cara membuat file temp terlebih dahulu kemudian memindahkan per line kecuali yang berisi `namaFile` yang dihapus.
+
+##### Server
+```c
+    else if(!strcmp(cmd,"delete"))
+    {
+        char *delStat[] = {"File Not Found\n", "Delete Success\n"};
+        if(tryDelete(file,authUser,authPass))
+        {
+            char delSuc[2048];
+            sprintf(delSuc,"%s\n%s",delStat[1],authenticated);
+            send(sock, delSuc, strlen(delSuc),0);
+        }
+        else{
+            char delFail[2048];
+            sprintf(delFail,"%s\n%s",delStat[0],authenticated);
+            send(sock, delFail, strlen(delFail),0);
+        }                
+    }
+
+    //Fungsi tryDelete
+    int tryDelete(char *bookName, char *user, char *pass)
+    {
+        char filePath[2048] = {0};
+        if(checkFile(bookName,filePath))
+        {
+            deleteFile(filePath,bookName);
+            char status[10];
+            strcpy(status,"Hapus");
+            makeLog(bookName,user,pass,status);
+            return 1;
+        }
+        else{
+
+            return 0;
+        }
+    }
+
+    //Fungsi checkFile
+    int checkFile(char *bookName, char *filePath)
+    {
+        FILE *f;
+        char tsvPath[2048] = {0}, cwd[1024] = {0};
+        getcwd(cwd,sizeof(cwd));
+        sprintf(tsvPath,"%s/files.tsv",cwd);
+        f = fopen(tsvPath, "r"); 
+        char line[1024];
+        while (fgets(line, sizeof(line), f)) {
+            char name[1024] = {0};
+            char *lastName = strrchr(line,'/');
+            strcpy(name,lastName+1);
+            name[strcspn(name,"\n")] = '\0';
+            //printf("%s\n",name);
+            if (!strcmp(bookName,name)) {
+                //printf("%s",line);
+                sprintf(filePath,"%s/FILES/%s",cwd,name);
+                fclose(f);
+                return 1;
+            }
+        }
+        fclose(f);
+        return 0;
+    }
+
+    //Fungsi deleteFile
+    void deleteFile(char *filePath, char *bookName)
+    {
+        char deletedFileName[2048] = {0} ,cwd[1024] = {0};
+        getcwd(cwd,sizeof(cwd));
+        sprintf(deletedFileName,"%s/FILES/old-%s",cwd,bookName);
+        rename(filePath,deletedFileName);
+
+        FILE *f,*fNew;
+        char tsvPath[2048] = {0}, tempTSV[2048] = {0};
+        sprintf(tsvPath,"%s/files.tsv",cwd);
+        sprintf(tempTSV,"%s/temp-files.tsv",cwd);
+        f = fopen(tsvPath, "r"); 
+        fNew = fopen(tempTSV, "w"); 
+        char line[1024];
+        while (fgets(line, sizeof(line), f)) {
+            char name[1024] = {0};
+            char *lastName = strrchr(line,'/');
+            strcpy(name,lastName+1);
+            name[strcspn(name,"\n")] = '\0';
+            if (!strcmp(bookName,name)) {
+                continue;
+            }
+            else fputs(line,fNew);
+        }
+        fclose(f);
+        fclose(fNew);
+        remove(tsvPath);
+        rename(tempTSV,tsvPath);
+    }
+```
 **f.** Client dapat melihat semua isi files.tsv dengan memanggil suatu perintah yang bernama see. Output dari perintah tersebut keluar dengan format. 
 Contoh Command Client :
 > see
@@ -58,17 +844,244 @@ Ekstensi File :
 Filepath : 
 ```
 
+#### Jawab
+Ketika Server menerima command `see` dari client, maka server akan mengirimkan seluruh baris dari `files.tsv` yang diformat sesuai format ke client.
+
+#### Server
+```c
+    else if(!strcmp(cmd,"see"))
+    {
+        char *seeStat[] = {"Database is Empty\n", "All Book in Database\n"};
+        //read(sock,bookName,2048);
+        //printf("%s\n",file);
+        if(trySee(sock))
+        {
+            char seeSuc[2048];
+            sprintf(seeSuc,"%s\n%s",seeStat[1],authenticated);
+            send(sock, seeSuc, strlen(seeSuc),0);
+        }
+        else{
+            char seeFail[2048];
+            sprintf(seeFail,"%s\n%s",seeStat[0],authenticated);
+            send(sock, seeFail, strlen(seeFail),0);
+        }  
+    }
+
+    int trySee(int sock)
+    {
+        FILE *f,*fNew;
+        char tsvPath[2048] = {0}, tempTSV[2048] = {0},cwd[1024] = {0};
+        getcwd(cwd,sizeof(cwd));
+        sprintf(tsvPath,"%s/files.tsv",cwd);
+        f = fopen(tsvPath, "r");
+
+        if(f == NULL) return 0;
+        char line[1024], All[4096] ={0};
+        while (fgets(line, sizeof(line), f)) {
+            char Nama[1024] = {0}, Publisher[1024] = {0}, Tahun[1024] = {0}, Ekstensi[1024] = {0}, Filepath[1024] = {0};
+            
+            char fullLine[1024] = {0};
+
+            strcpy(fullLine,line);
+            fullLine[strcspn(fullLine,"\n")] = '\0';
+
+            const char *p="\t";
+            char *a,*b;
+            int i = 0;
+
+            for( a=strtok_r(fullLine,p,&b) ; a!=NULL ; a=strtok_r(NULL,p,&b) ) {
+                if(i == 0) strcpy(Publisher,a);
+                else if(i == 1) strcpy(Tahun,a);
+                else strcpy(Filepath,a);
+
+                i++;
+            }      
+            
+            char NamaFileExt[1024] = {0};
+
+            char *PtrFileExt = strrchr(Filepath,'/');
+            strcpy(NamaFileExt,PtrFileExt+1);
+            getFileExt(NamaFileExt,Ekstensi);
+
+            const char *q=".";
+            char *c, *d;
+            char nameCopy[1024];
+            strcpy(nameCopy,NamaFileExt);
+            c=strtok_r(nameCopy,q,&d);
+            strcpy(Nama,c);
+            char Format[4096] = {0};
+            sprintf(Format,"Nama: %s\nPublisher: %s\nTahun publishing: %s\nEkstensi file : %s\nFilepath : %s\n",Nama,Publisher,Tahun,Ekstensi,Filepath);
+            strcat(All,Format);
+            strcat(All,"\n");
+        }
+        All[strlen(All)] = '\0';
+        send(sock, All, sizeof(All), 0) ;
+        bzero(All, 4096) ;
+        fclose(f);
+        return 1;
+    }
+```
+
+##### Client
+```c
+    else if(!strcmp(command,"see")&& Auth)
+    {
+        recSee(sock);
+    }
+
+    //Fungsi recSee
+    void recSee(int sock)
+    {
+        char bufRec[4096];
+        int recvSize;
+        bzero(bufRec, 4096) ;
+        recvSize=read(sock, bufRec, 4096);
+        printf("%s", bufRec) ;
+        bzero(bufRec, 4096) ;
+        return;
+    }
+```
 **g.** Aplikasi client juga dapat melakukan pencarian dengan memberikan suatu string. Hasilnya adalah semua nama file yang mengandung string tersebut. Format output seperti format output f.
 Contoh Client Command:
 find TEMP
 
+#### Jawab
+Untuk command `find`, hampir sama seperti command `see` tetapi server hanya mengirim baris dari `files.tsv`  yang diformat seperti di poin sebelumnya.
+
+##### Server
+```c
+    else if(!strcmp(cmd,"find"))
+    {
+        char *findStat[] = {"No Book Found", "All Book in Database"};
+        if(tryFind(sock,file))
+        {
+            char findSuc[2048];
+            sprintf(findSuc,"%s that contains %s\n\n%s",findStat[1],file,authenticated);
+            send(sock, findSuc, strlen(findSuc),0);
+        }
+        else{
+            char findFail[2048];
+            sprintf(findFail,"%s that contains %s\n\n%s",findStat[0],file,authenticated);
+            send(sock, findFail, strlen(findFail),0);
+        }               
+    }
+
+    //Fungsi tryFind
+    int tryFind(int sock,char *fileName)
+    {
+        int Count = 0;
+        FILE *f,*fNew;
+        char tsvPath[2048] = {0}, tempTSV[2048] = {0},cwd[1024] = {0};
+        getcwd(cwd,sizeof(cwd));
+        sprintf(tsvPath,"%s/files.tsv",cwd);
+        f = fopen(tsvPath, "r");
+
+        if(f == NULL) return 0;
+        char line[1024], All[4096] ={0};
+        while (fgets(line, sizeof(line), f)) {
+            char Nama[1024] = {0}, Publisher[1024] = {0}, Tahun[1024] = {0}, Ekstensi[1024] = {0}, Filepath[1024] = {0};
+            
+            char fullLine[1024] = {0};
+
+            strcpy(fullLine,line);
+            fullLine[strcspn(fullLine,"\n")] = '\0';
+
+            const char *p="\t";
+            char *a,*b;
+            int i = 0;
+
+            for( a=strtok_r(fullLine,p,&b) ; a!=NULL ; a=strtok_r(NULL,p,&b) ) {
+                if(i == 0) strcpy(Publisher,a);
+                else if(i == 1) strcpy(Tahun,a);
+                else strcpy(Filepath,a);
+
+                i++;
+            }      
+            
+            char NamaFileExt[1024] = {0};
+
+            char *PtrFileExt = strrchr(Filepath,'/');
+            strcpy(NamaFileExt,PtrFileExt+1);
+            getFileExt(NamaFileExt,Ekstensi);
+
+            const char *q=".";
+            char *c, *d;
+            char nameCopy[1024];
+            strcpy(nameCopy,NamaFileExt);
+            c=strtok_r(nameCopy,q,&d);
+            strcpy(Nama,c);
+            char *found;
+            found = strstr(Nama, fileName);
+            if(found == NULL) continue;
+            char Format[4096] = {0};
+            sprintf(Format,"Nama: %s\nPublisher: %s\nTahun publishing: %s\nEkstensi file : %s\nFilepath : %s\n",Nama,Publisher,Tahun,Ekstensi,Filepath);
+            if(!Count)strcat(All,"aaaa");
+            strcat(All,Format);
+            strcat(All,"\n");
+            Count++;
+        }
+        All[strlen(All)] = '\0';
+        if(!Count)
+        {
+            int Stat = 0;
+            send(sock,&Stat,sizeof(Stat),0);
+            return 0;
+        }
+        send(sock, All, sizeof(All), 0) ;
+        bzero(All, 4096) ;
+        fclose(f);
+        return 1;
+    }
+```
+
+##### Client
+```c
+    else if(!strcmp(command,"find")&&Auth)
+    {
+        int Stat = 0;
+        read(sock,&Stat,sizeof(Stat));
+        if(Stat) recSee(sock);
+    }
+
+    //Fungsi recSee sama seperti di poin sebelumnya.
+```
 **h.** Dikarenakan Keverk waspada dengan pertambahan dan penghapusan file di server, maka Keverk membuat suatu log untuk server yang bernama running.log. Contoh isi dari log ini adalah
 running.log
 > Tambah : File1.ektensi (id:pass)
 > 
 > Hapus : File2.ektensi (id:pass)
 
+#### Jawab
+Untuk poin ini, ketika ada command `add`atau `delete` maka di `running.log` akan ditambahkan baris sesuai format menggunakan fungsi `makeLog()` yang dipanggil di akhir fungsi `tryAdd()` atau `tryDelete()`.
 
+##### Server
+```c
+    void makeLog(char *fileName,char *User,char *Pass,char *Status)
+    {
+        char cwd[PATH_MAX] = {0};
+        if (getcwd(cwd, sizeof(cwd)) == NULL) {
+            perror("getcwd() error");
+            return -1;
+        }
+
+        char filesPath[PATH_MAX] = {0};
+        sprintf(filesPath,"%s/%s",cwd,"running.log");
+        FILE * fPtr;
+
+        fPtr = fopen(filesPath, "a");
+
+        if(fPtr == NULL)
+        {
+            printf("Unable to create file.\n");
+            return -1;
+        }
+
+        char log[PATH_MAX] = {0};
+        sprintf(log,"%s : %s (%s:%s)\n",Status,fileName,User,Pass);
+        fputs(log, fPtr);
+        fclose(fPtr);
+    }
+``
 
 
 ## Soal 2
