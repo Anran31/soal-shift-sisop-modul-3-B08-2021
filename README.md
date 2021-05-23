@@ -1738,7 +1738,7 @@ Pertama adalah mengecek apakah directory yang dibutuhkan ada. kemudian dengan me
 ### 3.4
 Semua file harus berada di dalam folder, jika terdapat file yang tidak memiliki ekstensi, file disimpan dalam folder “Unknown”. Jika file hidden, masuk folder “Hidden”.
 #### Jawab 
-Sudah ada dalam penjelasan soal 2.1.
+Sudah ada dalam penjelasan soal 3.1.
 
 ### 3.5
 Setiap 1 file yang dikategorikan dioperasikan oleh 1 thread agar bisa berjalan secara paralel sehingga proses kategori bisa berjalan lebih cepat.
