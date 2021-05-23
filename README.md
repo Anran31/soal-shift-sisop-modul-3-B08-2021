@@ -1082,8 +1082,33 @@ Untuk poin ini, ketika ada command `add`atau `delete` maka di `running.log` akan
         fclose(fPtr);
     }
 ```
+### Gambar Hasil
 
+#### 1a
+![1a](/images/1a.png)
 
+#### 1c
+![1c](/images/1c.png)
+#### 1d Before
+![1d-before](/images/1d-before.png)
+
+#### 1d After
+![1d-after](/images/1d-after.png)
+
+#### 1e Before
+![1e-before](/images/1e-before.png)
+
+#### 1e After
+![1e-after](/images/1e-after.png)
+
+#### 1f
+![1f](/images/1f.png)
+
+#### 1g
+![1g](/images/1g.png)
+
+#### 1h
+![1h](/images/1h.png)
 ## Soal 2
 Crypto (kamu) adalah teman Loba. Suatu pagi, Crypto melihat Loba yang sedang kewalahan mengerjakan tugas dari bosnya. Karena Crypto adalah orang yang sangat menyukai tantangan, dia ingin membantu Loba mengerjakan tugasnya. Detil dari tugas tersebut adalah:
 
@@ -1415,8 +1440,16 @@ Setelah membuat `pipe0`, `pipe1` sebagai parent process dibuat untuk mengambil i
 ```
 di dalam parent, dibuat command untuk `-nrk, 3,3` dan argumen untuk mengecek resource 5 proses teratas.
 
+### Gambar Hasil
 
+#### 2a
+![2a](/images/2a.png)
 
+#### 2b
+![2b](/images/2b.png)
+
+#### 2c
+![2c](/images/2c.png)
 
 ## Soal 3
 Seorang mahasiswa bernama Alex sedang mengalami masa gabut. Di saat masa gabutnya, ia memikirkan untuk merapikan sejumlah file yang ada di laptopnya. Karena jumlah filenya terlalu banyak, Alex meminta saran ke Ayub. Ayub menyarankan untuk membuat sebuah program C agar file-file dapat dikategorikan. Program ini akan memindahkan file sesuai ekstensinya ke dalam folder sesuai ekstensinya yang folder hasilnya terdapat di working directory ketika program kategori tersebut dijalankan.
