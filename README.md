@@ -1081,7 +1081,7 @@ Untuk poin ini, ketika ada command `add`atau `delete` maka di `running.log` akan
         fputs(log, fPtr);
         fclose(fPtr);
     }
-``
+```
 
 
 ## Soal 2
