@@ -1752,3 +1752,20 @@ Catatan:
 - Jika ekstensi lebih dari satu (contoh “.tar.gz”) maka akan masuk ke folder dengan titik terdepan (contoh “tar.gz”)
 - Dilarang juga menggunakan fork-exec dan system()
 - Bagian b dan c berlaku rekursif
+
+### Gambar Hasil
+
+#### 3a
+![3a](/images/3a.png)
+
+#### 3b Before
+![3b-before](/images/3b-before.png)
+
+#### 3b After
+![3b-after](/images/3b-after.png)
+
+#### 3c Before
+![3c-before](/images/3c-before.png)
+
+#### 3c After
+![3c-after](/images/3c-after.png)
