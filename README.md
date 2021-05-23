@@ -1444,7 +1444,7 @@ Pertama adalah hand;ing exception untuk untuk semua perintah yang akan dijalanka
     }
 ```
 
-### 2.1 
+### 3.1 
 Program menerima opsi -f seperti contoh di atas, jadi pengguna bisa menambahkan argumen file yang bisa dikategorikan sebanyak yang diinginkan oleh pengguna. 
 Output yang dikeluarkan adalah seperti ini :
 > File 1 : Berhasil Dikategorikan (jika berhasil)
@@ -1606,7 +1606,7 @@ Terakhir, pada `main`, akan dicek terlebih dahulu return value yang datang, jika
 Dan jika sudah selesai atau bukan `-f` maka akan return 0.
 
 
-### 2.2
+### 3.2
 Program juga dapat menerima opsi -d untuk melakukan pengkategorian pada suatu directory. Namun pada opsi -d ini, user hanya bisa memasukkan input 1 directory saja, tidak seperti file yang bebas menginput file sebanyak mungkin. Contohnya adalah seperti ini:
 > $ ./soal3 -d /path/to/directory/
 
@@ -1712,7 +1712,7 @@ Setelah mendapatkan fileCount dan merecursive, maka dibuat thread untuk mengelom
 }
 ```
 
-### 2.3 
+### 3.3 
 Selain menerima opsi-opsi di atas, program ini menerima opsi * , contohnya ada di bawah ini:
 > $ ./soal3 \*
 
@@ -1735,12 +1735,12 @@ Pertama adalah mengecek apakah directory yang dibutuhkan ada. kemudian dengan me
         }
     }
 ```
-### 2.4
+### 3.4
 Semua file harus berada di dalam folder, jika terdapat file yang tidak memiliki ekstensi, file disimpan dalam folder “Unknown”. Jika file hidden, masuk folder “Hidden”.
 #### Jawab 
 Sudah ada dalam penjelasan soal 2.1.
 
-### 2.5
+### 3.5
 Setiap 1 file yang dikategorikan dioperasikan oleh 1 thread agar bisa berjalan secara paralel sehingga proses kategori bisa berjalan lebih cepat.
 #### Jawab
 Sudah ada dalam penjelasan dalam soal2 sebelumnya.
